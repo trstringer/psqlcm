@@ -19,12 +19,11 @@ import (
 )
 
 type connection struct {
-	Host      string `json:"host"`
-	Port      int    `json:"port"`
-	Database  string `json:"database"`
-	User      string `json:"user"`
-	Password  string `json:"password"`
-	IsCurrent bool   `json:"is_current"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Database string `json:"database"`
+	User     string `json:"user"`
+	Password string `json:"password"`
 }
 
 func (c connection) String() string {
