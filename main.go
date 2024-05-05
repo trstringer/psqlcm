@@ -18,11 +18,12 @@ import (
 )
 
 type connection struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Database string `json:"database"`
-	User     string `json:"user"`
-	Password string `json:"password"`
+	Host      string `json:"host"`
+	Port      int    `json:"port"`
+	Database  string `json:"database"`
+	User      string `json:"user"`
+	Password  string `json:"password"`
+	IsCurrent bool   `json:"is_current"`
 }
 
 func (c connection) String() string {
@@ -31,14 +32,16 @@ func (c connection) String() string {
 }
 
 const (
-	flagCacheDir string = "cache-dir"
+	flagCacheDir   string = "cache-dir"
+	flagNotCurrent string = "not-current"
 
 	defaultHostname string = "localhost"
 	defaultPort     int    = 5432
 	defaultUser     string = "postgres"
 	defaultDatabase string = "postgres"
 
-	keyEnvVar string = "PSQLCM_KEY"
+	keyEnvVar             string = "PSQLCM_KEY"
+	currentConnectionName string = "current"
 )
 
 func deleteConnection(cCtx *cli.Context) error {
@@ -62,10 +65,12 @@ func deleteConnection(cCtx *cli.Context) error {
 }
 
 func show(cCtx *cli.Context) error {
+	var connectionName string
 	if cCtx.Args().Len() == 0 {
-		return fmt.Errorf("you must pass the connection name to show")
+		connectionName = currentConnectionName
+	} else {
+		connectionName = cCtx.Args().Get(0)
 	}
-	connectionName := cCtx.Args().Get(0)
 	fullPath := filepath.Join(cCtx.String(flagCacheDir), connectionName)
 	output, err := os.ReadFile(fullPath)
 	if err != nil {
@@ -104,6 +109,17 @@ func list(cCtx *cli.Context) error {
 func generateConnectionName() string {
 	now := time.Now()
 	return fmt.Sprintf("pg%v", now.UnixMilli())
+}
+
+func setCurrent(c *connection, connectionName, path string) error {
+	src := filepath.Join(path, connectionName)
+	dst := filepath.Join(path, currentConnectionName)
+
+	if _, err := os.Stat(dst); err == nil {
+		os.Remove(dst)
+	}
+
+	return os.Symlink(src, dst)
 }
 
 func login(cCtx *cli.Context) error {
@@ -176,6 +192,13 @@ func login(cCtx *cli.Context) error {
 	)
 	if err != nil {
 		return fmt.Errorf("error writing connection to file: %w", err)
+	}
+
+	notCurrent := cCtx.Bool(flagNotCurrent)
+	if !notCurrent {
+		if err := setCurrent(newConnection, connectionName, cCtx.String(flagCacheDir)); err != nil {
+			return fmt.Errorf("error setting connection as current: %w", err)
+		}
 	}
 
 	return nil
@@ -252,6 +275,10 @@ func main() {
 						Name:  flagCacheDir,
 						Usage: "Location to store connections",
 						Value: fmt.Sprintf("%s/.local/share/psqlcm", homeDir),
+					},
+					&cli.BoolFlag{
+						Name:  flagNotCurrent,
+						Usage: "Do not set this new connection as current",
 					},
 				},
 			},
