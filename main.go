@@ -142,7 +142,7 @@ func setCurrent(c *connection, connectionName, path string) error {
 	return os.Symlink(src, dst)
 }
 
-func login(cCtx *cli.Context) error {
+func newConnection(cCtx *cli.Context) error {
 	newConnection := &connection{}
 
 	fmt.Printf("🖥️ Hostname [%s]: ", defaultHostname)
@@ -287,9 +287,9 @@ func main() {
 		Usage: "psql connection manager",
 		Commands: []*cli.Command{
 			{
-				Name:   "login",
-				Usage:  "Login and save credentials",
-				Action: login,
+				Name:   "new",
+				Usage:  "New connection",
+				Action: newConnection,
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:  flagCacheDir,
