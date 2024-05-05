@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -100,8 +101,27 @@ func list(cCtx *cli.Context) error {
 		return fmt.Errorf("error reading cache dir: %w", err)
 	}
 
+	var currentConnection string
 	for _, dir := range dirs {
-		fmt.Println(dir.Name())
+		if dir.Name() == currentConnectionName {
+			dst, err := os.Readlink(filepath.Join(cCtx.String(flagCacheDir), currentConnectionName))
+			if err != nil {
+				return fmt.Errorf("error reading current link: %w", err)
+			}
+			pathParts := strings.Split(dst, "/")
+			currentConnection = pathParts[len(pathParts)-1]
+		}
+	}
+
+	for _, dir := range dirs {
+		printableConnection := dir.Name()
+		if printableConnection == currentConnectionName {
+			continue
+		}
+		if printableConnection == currentConnection {
+			printableConnection = fmt.Sprintf("*%s", printableConnection)
+		}
+		fmt.Println(printableConnection)
 	}
 	return nil
 }
