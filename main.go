@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -11,10 +12,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	_ "github.com/lib/pq"
 	"github.com/urfave/cli/v2"
 )
 
@@ -24,10 +27,11 @@ type connection struct {
 	Database string `json:"database"`
 	User     string `json:"user"`
 	Password string `json:"password"`
+	SSLMode  string `json:"sslmode"`
 }
 
 func (c connection) String() string {
-	connectionString := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", c.User, c.Password, c.Host, c.Port, c.Database)
+	connectionString := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s", c.User, c.Password, c.Host, c.Port, c.Database, c.SSLMode)
 	return connectionString
 }
 
@@ -39,6 +43,7 @@ const (
 	defaultPort     int    = 5432
 	defaultUser     string = "postgres"
 	defaultDatabase string = "postgres"
+	defaultSSLMode  string = "require"
 
 	keyEnvVar             string = "PSQLCM_KEY"
 	currentConnectionName string = "current"
@@ -175,20 +180,51 @@ func newConnection(cCtx *cli.Context) error {
 		newConnection.User = defaultUser
 	}
 
-	fmt.Printf("🔒 Password: ")
-	var password string
-	fmt.Scanln(&password)
-	newConnection.Password, err = encryptPassword(password)
-	if err != nil {
-		return fmt.Errorf("error encrypting password: %w", err)
+	fmt.Printf("🔑 Password: ")
+	fmt.Scanln(&newConnection.Password)
+
+	fmt.Printf("🔒 SSL mode [%s]: ", defaultSSLMode)
+	var sslMode string
+	fmt.Scanln(&sslMode)
+	if sslMode == "" {
+		sslMode = defaultSSLMode
 	}
+	if !slices.Contains([]string{"disable", "allow", "prefer", "require", "verify-ca", "verify-full"}, sslMode) {
+		return fmt.Errorf("unsupported SSL mode")
+	}
+	newConnection.SSLMode = sslMode
 
 	defaultConnectionName := generateConnectionName()
-	fmt.Printf("📕 Connection name [%s]: ", defaultConnectionName)
+	fmt.Printf("\n📕 Connection name [%s]: ", defaultConnectionName)
 	var connectionName string
 	fmt.Scanln(&connectionName)
 	if connectionName == "" {
 		connectionName = defaultConnectionName
+	}
+
+	fmt.Printf("⚡ Test connection [Y/n]: ")
+	var testConnectionAnswer string
+	fmt.Scanln(&testConnectionAnswer)
+	if testConnectionAnswer == "" || strings.ToLower(string(testConnectionAnswer[0])) == "y" {
+		dbConnection, err := sql.Open("postgres", newConnection.String())
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			fmt.Printf("Save connection? [Y/n] ")
+			var continueAnyway string
+			fmt.Scanln(&continueAnyway)
+			if continueAnyway != "" && strings.ToLower(string(continueAnyway[0])) != "y" {
+				return fmt.Errorf("error opening connection: %w", err)
+			}
+		}
+		if err := dbConnection.Ping(); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			fmt.Printf("Save connection? [Y/n] ")
+			var continueAnyway string
+			fmt.Scanln(&continueAnyway)
+			if continueAnyway != "" && strings.ToLower(string(continueAnyway[0])) != "y" {
+				return fmt.Errorf("error pinging database: %w", err)
+			}
+		}
 	}
 
 	_, err = os.Stat(cCtx.String(flagCacheDir))
@@ -199,6 +235,10 @@ func newConnection(cCtx *cli.Context) error {
 		}
 	}
 
+	newConnection.Password, err = encryptPassword(newConnection.Password)
+	if err != nil {
+		return fmt.Errorf("error encrypting password: %w", err)
+	}
 	connectionJSON, err := json.MarshalIndent(newConnection, "", "    ")
 	if err != nil {
 		return fmt.Errorf("error marshaling output: %w", err)

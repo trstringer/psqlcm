@@ -2,7 +2,10 @@ module github.com/trstringer/psql-login
 
 go 1.22.0
 
-require github.com/urfave/cli/v2 v2.27.2
+require (
+	github.com/lib/pq v1.10.9
+	github.com/urfave/cli/v2 v2.27.2
+)
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
