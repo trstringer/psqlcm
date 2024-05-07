@@ -60,6 +60,14 @@ func deleteConnection(cCtx *cli.Context) error {
 		return fmt.Errorf("connection not found")
 	}
 
+	connectionIsCurrent, err := isConnectionCurrent(connectionName, cCtx.String(flagCacheDir))
+	if err != nil {
+		return fmt.Errorf("error checking for current connection: %w", err)
+	}
+	if connectionIsCurrent {
+		removeCurrent(cCtx.String(flagCacheDir))
+	}
+
 	if err := os.Remove(fullPath); err != nil {
 		return fmt.Errorf("error deleting connection file: %w", err)
 	}
@@ -97,6 +105,27 @@ func show(cCtx *cli.Context) error {
 	fmt.Printf(cachedConnection.String())
 
 	return nil
+}
+
+func removeCurrent(dir string) error {
+	return os.Remove(filepath.Join(dir, currentConnectionName))
+}
+
+func isConnectionCurrent(connectionName, dir string) (bool, error) {
+	_, err := os.Stat(filepath.Join(dir, currentConnectionName))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("error checking for current file: %w", err)
+	}
+	dst, err := os.Readlink(filepath.Join(dir, currentConnectionName))
+	if err != nil {
+		return false, fmt.Errorf("error reading current link: %w", err)
+	}
+	pathParts := strings.Split(dst, "/")
+	currentConnection := pathParts[len(pathParts)-1]
+	return currentConnection == connectionName, nil
 }
 
 func list(cCtx *cli.Context) error {
@@ -367,9 +396,10 @@ func main() {
 				},
 			},
 			{
-				Name:   "delete",
-				Usage:  "Remove a cached connection",
-				Action: deleteConnection,
+				Name:    "delete",
+				Usage:   "Remove a cached connection",
+				Aliases: []string{"del", "remove"},
+				Action:  deleteConnection,
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:  flagCacheDir,
