@@ -164,7 +164,7 @@ func generateConnectionName() string {
 	return fmt.Sprintf("pg%v", now.UnixMilli())
 }
 
-func setCurrent(c *connection, connectionName, path string) error {
+func setCurrent(connectionName, path string) error {
 	src := filepath.Join(path, connectionName)
 	dst := filepath.Join(path, currentConnectionName)
 
@@ -284,7 +284,7 @@ func newConnection(cCtx *cli.Context) error {
 
 	notCurrent := cCtx.Bool(flagNotCurrent)
 	if !notCurrent {
-		if err := setCurrent(newConnection, connectionName, cCtx.String(flagCacheDir)); err != nil {
+		if err := setCurrent(connectionName, cCtx.String(flagCacheDir)); err != nil {
 			return fmt.Errorf("error setting connection as current: %w", err)
 		}
 	}
@@ -400,6 +400,23 @@ func main() {
 				Usage:   "Remove a cached connection",
 				Aliases: []string{"del", "remove"},
 				Action:  deleteConnection,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  flagCacheDir,
+						Usage: "Location to store connections",
+						Value: fmt.Sprintf("%s/.local/share/psqlcm", homeDir),
+					},
+				},
+			},
+			{
+				Name:  "set-current",
+				Usage: "Set a connection as current",
+				Action: func(cCtx *cli.Context) error {
+					if cCtx.Args().Len() == 0 {
+						return fmt.Errorf("pass in the connection to set as current")
+					}
+					return setCurrent(cCtx.Args().Get(0), cCtx.String(flagCacheDir))
+				},
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:  flagCacheDir,
