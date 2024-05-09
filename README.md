@@ -22,11 +22,12 @@ USAGE:
    psqlcm [global options] command [command options] 
 
 COMMANDS:
-   login     Login and save credentials
-   list, ls  List all available connections
-   show      Show a connection string
-   delete    Remove a cached connection
-   help, h   Shows a list of commands or help for one command
+   new                  New connection
+   list, ls             List all available connections
+   show                 Show a connection string
+   delete, del, remove  Remove a cached connection
+   set-current          Set a connection as current
+   help, h              Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --help, -h  show help
@@ -35,13 +36,17 @@ GLOBAL OPTIONS:
 ### Add a connection
 
 ```
-$ psqlcm login
-🖥️ Hostname [localhost]: host1
+$ psqlcm new
+🖥️  Hostname [localhost]: 127.0.0.1
 🌐 Port [5432]: 
-📝 Database [postgres]: db1
-🔨 User [postgres]: user1
-🔒 Password: mysecretpassword   
-📕 Connection name [pg1714646843370]: new-connection1
+📝 Database [postgres]: mydb1
+🔨 User [postgres]: myuser1
+🔑 Password: 
+🔒 SSL mode [require]: disable
+
+📕 Connection name [pg1715219721581]: my-connection1
+⚡ Test connection [Y/n]: n
+Connection saved!
 ```
 
 *Note: The password is encrypted and cached locally. The plaintext password is never stored.*
