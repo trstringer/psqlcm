@@ -19,6 +19,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/term"
 )
 
 type connection struct {
@@ -210,7 +211,12 @@ func newConnection(cCtx *cli.Context) error {
 	}
 
 	fmt.Printf("🔑 Password: ")
-	fmt.Scanln(&newConnection.Password)
+	inputPassword, err := term.ReadPassword(0)
+	fmt.Println()
+	if err != nil {
+		return fmt.Errorf("error getting password: %w", err)
+	}
+	newConnection.Password = string(inputPassword)
 
 	fmt.Printf("🔒 SSL mode [%s]: ", defaultSSLMode)
 	var sslMode string
@@ -288,6 +294,8 @@ func newConnection(cCtx *cli.Context) error {
 			return fmt.Errorf("error setting connection as current: %w", err)
 		}
 	}
+
+	fmt.Println("Connection saved!")
 
 	return nil
 }
